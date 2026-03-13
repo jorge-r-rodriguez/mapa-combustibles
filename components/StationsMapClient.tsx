@@ -133,30 +133,35 @@ function getFuelLabel(fuel: FuelType) {
   return fuel === "gas95" ? "Gasolina 95" : "Diésel";
 }
 
-function PopupPrice({
+function PopupPricePill({
   label,
   value,
-  tone
+  tone,
+  active
 }: {
   label: string;
   value: number | null | undefined;
   tone: "primary" | "accent";
+  active?: boolean;
 }) {
   return (
     <div
-      className={`rounded-[18px] border px-3 py-2.5 ${
-        tone === "primary"
-          ? "border-primary/10 bg-primary/5"
-          : "border-accent/10 bg-accent/5"
-      }`}
-    >
-      <p className="text-[10px] uppercase tracking-[0.18em] text-slate-400">{label}</p>
-      <p
-        className={`mt-1 text-[15px] font-semibold ${
-          tone === "primary" ? "text-primary" : "text-accent-dark"
+      className={`flex flex-col items-center rounded-2xl px-4 py-3 transition ${active
+        ? tone === "primary"
+          ? "bg-primary shadow-[0_6px_20px_rgba(11,99,246,0.28)]"
+          : "bg-accent shadow-[0_6px_20px_rgba(27,182,106,0.28)]"
+        : "bg-white/10 ring-1 ring-white/20"
         }`}
-      >
-        {value?.toFixed(3) ?? "--"} €
+    >
+      <p className={`text-[9px] font-semibold uppercase tracking-[0.18em] ${active ? "text-white/70" : "text-white/50"
+        }`}>
+        {label}
+      </p>
+      <p className={`mt-1 text-[17px] font-bold leading-none ${active ? "text-white" : "text-white/60"
+        }`}>
+        {value?.toFixed(3) ?? "--"}
+        <span className={`ml-0.5 text-[11px] font-semibold ${active ? "text-white/80" : "text-white/40"
+          }`}> €</span>
       </p>
     </div>
   );
@@ -177,49 +182,55 @@ function MobileStationPreview({
 
   return (
     <div className="pointer-events-none absolute inset-x-3 bottom-3 z-[700] sm:hidden">
-      <div className="pointer-events-auto rounded-[24px] border border-white/80 bg-white/96 p-3 shadow-[0_18px_45px_rgba(15,23,42,0.18)] backdrop-blur">
-        <div className="flex items-start gap-3">
-          <div className="min-w-0 flex-1">
-            <p className="text-[10px] uppercase tracking-[0.22em] text-slate-500">
-              {station.city} · {station.province}
-            </p>
-            <h3 className="mt-1 text-base font-semibold leading-5 text-slate-950">{station.brand}</h3>
-            <p className="mt-1 text-sm leading-5 text-slate-600">{station.address}</p>
+      <div className="animate-slide-up pointer-events-auto overflow-hidden rounded-[24px] shadow-[0_20px_50px_rgba(15,23,42,0.22)]">
+        {/* Dark header */}
+        <div className="relative bg-[linear-gradient(135deg,#0f172a_0%,#1e293b_100%)] px-4 pb-4 pt-4">
+          <div className="flex items-start justify-between gap-2">
+            <div className="min-w-0">
+              <p className="text-[9px] font-medium uppercase tracking-[0.22em] text-slate-400">
+                {station.city} · {station.province}
+              </p>
+              <h3 className="mt-1 text-[17px] font-bold leading-tight text-white">{station.brand}</h3>
+              <p className="mt-1 text-[12px] leading-5 text-slate-400">{station.address}</p>
+            </div>
+            <button
+              type="button"
+              onClick={onClose}
+              aria-label="Cerrar ficha de estación"
+              className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-white/10 text-white/70 transition hover:bg-white/20 hover:text-white"
+            >
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none">
+                <path d="M18 6L6 18M6 6l12 12" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" />
+              </svg>
+            </button>
           </div>
-          <div className="shrink-0 rounded-[18px] border border-primary/10 bg-primary/5 px-3 py-2 text-right">
-            <p className="text-[9px] uppercase tracking-[0.18em] text-primary/70">{getFuelLabel(fuel)}</p>
-            <p className="mt-1 text-base font-semibold text-primary">
-              {activePrice?.toFixed(3) ?? "--"} €
-            </p>
+          <div className="mt-3 grid grid-cols-2 gap-2">
+            <PopupPricePill label="Gasolina 95" value={station.priceGas95} tone="primary" active={fuel === "gas95"} />
+            <PopupPricePill label="Diésel" value={station.priceDiesel} tone="accent" active={fuel === "diesel"} />
           </div>
-          <button
-            type="button"
-            onClick={onClose}
-            aria-label="Cerrar ficha de estación"
-            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-slate-200 bg-white text-lg leading-none text-slate-700 shadow-sm transition hover:border-primary/20 hover:text-primary"
+        </div>
+
+        {/* White body */}
+        <div className="bg-white px-4 pb-4 pt-3">
+          <div className="flex items-center justify-between text-[11px] text-slate-500">
+            <div className="flex items-center gap-1.5">
+              <span className="h-1.5 w-1.5 rounded-full bg-accent" />
+              <span>Datos oficiales · {formatDate(station.updatedAt)}</span>
+            </div>
+            <span className="rounded-full bg-slate-100 px-2 py-0.5">ID {station.id}</span>
+          </div>
+          <a
+            href={getDirectionsUrl(station, userLocation)}
+            target="_blank"
+            rel="noreferrer"
+            className="mt-3 flex h-11 items-center justify-center gap-2 rounded-2xl bg-[linear-gradient(135deg,#0b63f6,#1a7df8)] px-4 text-sm font-semibold !text-white no-underline shadow-[0_8px_20px_rgba(11,99,246,0.3)] transition hover:brightness-105 hover:!text-white"
           >
-            ×
-          </button>
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none">
+              <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7Zm0 9.5A2.5 2.5 0 1 1 12 6a2.5 2.5 0 0 1 0 5Z" fill="white" />
+            </svg>
+            {userLocation ? "Ir ahora con Google Maps" : "Abrir en Google Maps"}
+          </a>
         </div>
-
-        <div className="mt-3 grid grid-cols-2 gap-2">
-          <PopupPrice label="Gasolina 95" value={station.priceGas95} tone="primary" />
-          <PopupPrice label="Diésel" value={station.priceDiesel} tone="accent" />
-        </div>
-
-        <div className="mt-3 flex items-center justify-between gap-3 text-xs text-slate-500">
-          <span className="rounded-full bg-slate-100 px-2.5 py-1">ID {station.id}</span>
-          <span>Actualizado {formatDate(station.updatedAt)}</span>
-        </div>
-
-        <a
-          href={getDirectionsUrl(station, userLocation)}
-          target="_blank"
-          rel="noreferrer"
-          className="mt-3 flex h-11 items-center justify-center rounded-2xl bg-[linear-gradient(135deg,#0b63f6,#1a7df8)] px-4 text-sm font-semibold !text-white no-underline shadow-[0_10px_24px_rgba(11,99,246,0.24)] transition hover:brightness-95 hover:!text-white"
-        >
-          {userLocation ? "Ir ahora con Google Maps" : "Abrir en Maps"}
-        </a>
       </div>
     </div>
   );
@@ -294,6 +305,7 @@ function StationsMapClientComponent({
               >
                 <Popup
                   minWidth={0}
+                  closeButton={false}
                   autoPan
                   keepInView
                   offset={[0, -12]}
@@ -301,69 +313,65 @@ function StationsMapClientComponent({
                   autoPanPaddingBottomRight={[24, 24]}
                   className="[&_.leaflet-popup-content]:m-0"
                 >
-                  <div className="w-[284px] overflow-hidden rounded-[22px] border border-slate-200/90 bg-white shadow-[0_18px_45px_rgba(15,23,42,0.14)] ring-1 ring-primary/10">
-                    <div className="bg-[linear-gradient(135deg,rgba(11,99,246,0.10),rgba(27,182,106,0.08))] px-4 pb-3 pt-3.5 pr-8">
-                      <div className="flex items-start justify-between gap-3">
+                  {/* ── Premium popup card ───────────────── */}
+                  <div className="w-[300px] overflow-hidden rounded-[24px] shadow-[0_24px_60px_rgba(15,23,42,0.22)]">
+
+                    {/* Dark gradient header */}
+                    <div className="relative bg-[linear-gradient(145deg,#0f172a_0%,#1a2744_60%,#0f2847_100%)] px-4 pb-4 pt-4">
+                      {/* Location + brand */}
+                      <div className="flex items-start gap-2">
+                        <div className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-white/10">
+                          <svg width="11" height="11" viewBox="0 0 24 24" fill="none">
+                            <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7Zm0 9.5A2.5 2.5 0 1 1 12 6a2.5 2.5 0 0 1 0 5Z" fill="rgba(255,255,255,0.7)" />
+                          </svg>
+                        </div>
                         <div className="min-w-0">
-                          <p className="text-[10px] uppercase tracking-[0.24em] text-slate-500">
-                            {station.city} · {station.province}
+                          <p className="text-[9px] font-medium uppercase tracking-[0.22em] text-slate-400">
+                            {station.city}{station.postalCode ? ` · ${station.postalCode}` : ""} — {station.province}
                           </p>
-                          <h3 className="mt-1.5 text-[17px] font-semibold leading-5 text-slate-950">
+                          <h3 className="mt-0.5 text-[18px] font-bold leading-tight tracking-tight text-white">
                             {station.brand}
                           </h3>
-                          <p className="mt-1.5 text-[13px] leading-5 text-slate-600">
-                            {station.address}
-                          </p>
-                          <p className="text-[13px] text-slate-500">
-                            {station.postalCode ? `${station.postalCode} · ` : ""}
-                            {station.city}
-                          </p>
+                          <p className="mt-0.5 text-[12px] leading-5 text-slate-400">{station.address}</p>
                         </div>
-                        <div className="shrink-0 rounded-[18px] border border-primary/10 bg-white/88 px-2.5 py-1.5 text-right shadow-sm backdrop-blur">
-                          <p className="text-[9px] uppercase tracking-[0.18em] text-primary/70">
-                            {getFuelLabel(fuel)}
-                          </p>
-                          <p className="mt-0.5 text-[15px] font-semibold text-primary">
-                            {activePrice?.toFixed(3) ?? "--"} €
-                          </p>
-                        </div>
+                      </div>
+
+                      {/* Price pills inside header */}
+                      <div className="mt-3.5 grid grid-cols-2 gap-2">
+                        <PopupPricePill label="Gasolina 95" value={station.priceGas95} tone="primary" active={fuel === "gas95"} />
+                        <PopupPricePill label="Diésel" value={station.priceDiesel} tone="accent" active={fuel === "diesel"} />
                       </div>
                     </div>
 
-                    <div className="space-y-2.5 px-4 py-3.5">
-                      <div className="grid grid-cols-2 gap-2">
-                        <PopupPrice label="Gasolina 95" value={station.priceGas95} tone="primary" />
-                        <PopupPrice label="Diésel" value={station.priceDiesel} tone="accent" />
-                      </div>
-
-                      <div className="rounded-[18px] border border-slate-200 bg-slate-50/90 px-3 py-2.5">
-                        <div className="flex items-center justify-between gap-3">
+                    {/* White body */}
+                    <div className="bg-white px-4 pb-4 pt-3 space-y-3">
+                      {/* Update status */}
+                      <div className="flex items-center justify-between rounded-2xl bg-slate-50 px-3 py-2.5">
+                        <div className="flex items-center gap-2">
+                          <span className="flex h-5 w-5 items-center justify-center rounded-full bg-accent/15">
+                            <svg width="9" height="9" viewBox="0 0 24 24" fill="none">
+                              <path d="M5 13l4 4L19 7" stroke="#13854d" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+                            </svg>
+                          </span>
                           <div>
-                            <p className="text-[10px] uppercase tracking-[0.18em] text-slate-400">
-                              Estado del dato
-                            </p>
-                            <p className="mt-1 text-[13px] font-medium text-slate-800">
-                              Actualizado {formatDate(station.updatedAt)}
-                            </p>
-                          </div>
-                          <div className="rounded-full bg-accent/10 px-2.5 py-1 text-[11px] font-semibold text-accent-dark">
-                            Oficial
+                            <p className="text-[9px] font-semibold uppercase tracking-[0.16em] text-slate-400">Dato oficial</p>
+                            <p className="text-[12px] font-medium text-slate-700">{formatDate(station.updatedAt)}</p>
                           </div>
                         </div>
+                        <span className="rounded-full bg-accent/10 px-2.5 py-1 text-[10px] font-bold text-accent-dark">✓ Oficial</span>
                       </div>
 
-                      <div className="flex items-center justify-between gap-2 text-[11px] text-slate-500">
-                        <span className="rounded-full bg-slate-100 px-2.5 py-1">ID {station.id}</span>
-                        <span className="rounded-full bg-slate-100 px-2.5 py-1">Ruta en coche</span>
-                      </div>
-
+                      {/* CTA button */}
                       <a
                         href={getDirectionsUrl(station, userLocation)}
                         target="_blank"
                         rel="noreferrer"
-                        className="flex h-10 items-center justify-center rounded-2xl bg-[linear-gradient(135deg,#0b63f6,#1a7df8)] px-4 text-sm font-semibold !text-white no-underline shadow-[0_10px_24px_rgba(11,99,246,0.24)] transition hover:brightness-95 hover:!text-white"
+                        className="flex h-11 items-center justify-center gap-2 rounded-[14px] bg-[linear-gradient(135deg,#0b63f6_0%,#1a7df8_100%)] px-4 text-sm font-semibold !text-white no-underline shadow-[0_8px_24px_rgba(11,99,246,0.32)] transition hover:brightness-105 hover:shadow-[0_10px_28px_rgba(11,99,246,0.4)] hover:!text-white"
                       >
-                        {userLocation ? "Ir ahora con Google Maps" : "Abrir en Maps"}
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+                          <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7Zm0 9.5A2.5 2.5 0 1 1 12 6a2.5 2.5 0 0 1 0 5Z" fill="white" />
+                        </svg>
+                        {userLocation ? "Ir ahora con Google Maps" : "Abrir en Google Maps"}
                       </a>
                     </div>
                   </div>
