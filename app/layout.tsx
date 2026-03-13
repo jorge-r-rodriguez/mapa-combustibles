@@ -50,7 +50,7 @@ function FuelDropLogo() {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="es" className={`${heading.variable} ${body.variable}`}>
+    <html lang="es" suppressHydrationWarning className={`${heading.variable} ${body.variable}`}>
       <body className="font-[family-name:var(--font-body)]">
         {children}
 
