@@ -1,0 +1,108 @@
+@import "../styles/mdx.css";
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: light;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  @apply bg-background text-ink antialiased;
+  font-feature-settings: "ss01" 1, "cv02" 1, "cv03" 1;
+  background-image:
+    radial-gradient(circle at 0% 0%, rgba(11, 99, 246, 0.08), transparent 28%),
+    radial-gradient(circle at 100% 100%, rgba(27, 182, 106, 0.08), transparent 24%),
+    linear-gradient(180deg, #f8fbfc 0%, #eef3f5 100%);
+}
+
+a {
+  @apply transition-colors;
+}
+
+.container-app {
+  @apply mx-auto w-full max-w-[1500px] px-4 sm:px-6 lg:px-8;
+}
+
+.panel {
+  @apply rounded-4xl border border-white/70 bg-white/80 shadow-panel backdrop-blur;
+}
+
+.panel-muted {
+  @apply rounded-3xl border border-stroke bg-surface/80;
+}
+
+.control-input {
+  @apply h-12 w-full rounded-2xl border border-slate-200/90 bg-white px-4 text-sm text-slate-700 outline-none transition;
+  @apply placeholder:text-slate-400 focus:border-primary/35 focus:ring-4 focus:ring-primary/10;
+}
+
+.section-kicker {
+  @apply text-[11px] font-semibold uppercase tracking-[0.28em] text-primary;
+}
+
+.section-title {
+  @apply font-[family-name:var(--font-heading)] font-semibold tracking-tight text-ink;
+}
+
+.gradient-border {
+  position: relative;
+}
+
+.gradient-border::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  padding: 1px;
+  border-radius: inherit;
+  background: linear-gradient(135deg, rgba(11, 99, 246, 0.32), rgba(27, 182, 106, 0.24));
+  -webkit-mask:
+    linear-gradient(#fff 0 0) content-box,
+    linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
+}
+
+.leaflet-container .leaflet-popup-content-wrapper {
+  background: transparent;
+  box-shadow: none;
+  padding: 0;
+}
+
+.leaflet-container .leaflet-popup-content {
+  margin: 0;
+}
+
+.leaflet-container .leaflet-popup-tip {
+  background: white;
+  box-shadow: 0 12px 28px rgba(15, 23, 42, 0.14);
+}
+
+.leaflet-container .leaflet-popup-close-button {
+  top: 12px;
+  right: 12px;
+  display: flex;
+  height: 30px;
+  width: 30px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 9999px;
+  background: rgba(255, 255, 255, 0.96);
+  color: #0f172a;
+  box-shadow: 0 8px 20px rgba(15, 23, 42, 0.12);
+  font-size: 20px;
+  font-weight: 500;
+  line-height: 1;
+}
+
+.leaflet-container .leaflet-popup-close-button:hover,
+.leaflet-container .leaflet-popup-close-button:focus-visible {
+  background: #ffffff;
+  color: #0b63f6;
+  outline: none;
+}

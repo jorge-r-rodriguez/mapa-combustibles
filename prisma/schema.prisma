@@ -1,0 +1,38 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Station {
+  id          String   @id
+  brand       String
+  address     String
+  city        String
+  province    String
+  postalCode  String?
+  lat         Float
+  lon         Float
+  priceGas95  Float?
+  priceDiesel Float?
+  updatedAt   DateTime
+  createdAt   DateTime @default(now())
+
+  @@index([province])
+  @@index([city])
+  @@index([postalCode])
+  @@index([brand])
+  @@index([priceGas95])
+  @@index([priceDiesel])
+}
+
+model SyncState {
+  key             String    @id
+  lastAttemptAt   DateTime?
+  lastSuccessAt   DateTime?
+  sourceUpdatedAt DateTime?
+  status          String?
+}
