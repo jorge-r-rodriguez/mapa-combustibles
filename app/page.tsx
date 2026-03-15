@@ -1,41 +1,57 @@
 import Link from "next/link";
-import { Navbar } from "@/components/Navbar";
+import { FuelIndexCard } from "@/components/FuelIndexCard";
 import { FuelMapExperience } from "@/components/FuelMapExperience";
+import { HeroLocateButton } from "@/components/HeroLocateButton";
+import { Navbar } from "@/components/Navbar";
 import { getAllPostsMeta } from "@/lib/blog";
-import { getFilterOptions, getHomepageInsights } from "@/lib/stations";
+import { getFilterOptions, getFuelIndexSummary, getHomepageInsights } from "@/lib/stations";
 import { formatNumber } from "@/lib/utils";
 
 export const revalidate = 900;
 
 const MEDALS = ["🥇", "🥈", "🥉"];
 
+const TRUST_ITEMS = [
+  "12.000+ estaciones analizadas",
+  "Datos oficiales del Ministerio",
+  "Actualización cada 15 minutos"
+];
+
 export default async function HomePage() {
-  const [filterOptions, insights, posts] = await Promise.all([
+  const [filterOptions, insights, posts, fuelIndex] = await Promise.all([
     getFilterOptions(),
     getHomepageInsights(),
-    Promise.resolve(getAllPostsMeta().slice(0, 3))
+    Promise.resolve(getAllPostsMeta().slice(0, 3)),
+    getFuelIndexSummary()
   ]);
 
   return (
     <>
       <Navbar />
       <main className="pb-20">
-        {/* ── Hero ─────────────────────────────────────────── */}
         <section className="container-app pt-8 sm:pt-12">
           <div className="panel gradient-border overflow-hidden bg-hero-grid px-6 py-8 sm:px-10 sm:py-10">
-            <div className="grid gap-8 lg:grid-cols-[minmax(0,1.2fr)_340px] lg:items-center">
+            <div className="grid gap-8 lg:grid-cols-[minmax(0,1.15fr)_360px] lg:items-center">
               <div>
                 <p className="section-kicker">Fuel intelligence para conductores</p>
-                <h1 className="section-title mt-4 max-w-4xl text-4xl sm:text-[3.5rem] sm:leading-[1.02]">
-                  Encuentra la gasolina más barata cerca de ti
+                <h1 className="section-title mt-4 max-w-4xl text-4xl sm:text-[3.7rem] sm:leading-[1]">
+                  Gasolineras baratas en España con mapa, calor de precios y rutas optimizadas
                 </h1>
                 <p className="mt-5 max-w-2xl text-base leading-7 text-slate-600 sm:text-lg sm:leading-8">
-                  FuelMap España cruza el dataset oficial del gobierno con un mapa optimizado para
-                  detectar al momento qué estación te conviene por ubicación, provincia, marca o
-                  rango de precio.
+                  FuelMap España combina datos oficiales, analítica nacional y experiencia GIS para
+                  encontrar la estación que más te conviene por ubicación, precio y recorrido.
                 </p>
 
-                {/* Stat pills */}
+                <div className="mt-7 flex flex-wrap gap-3">
+                  <HeroLocateButton />
+                  <Link
+                    href="/gasolineras-mas-baratas-espana"
+                    className="inline-flex items-center justify-center rounded-[1.4rem] border border-slate-200 bg-white px-6 py-3.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+                  >
+                    Ver ranking nacional
+                  </Link>
+                </div>
+
                 <div className="mt-7 flex flex-wrap gap-2.5 text-sm text-slate-600">
                   <span className="flex items-center gap-2 rounded-full bg-white/88 px-4 py-2 shadow-sm">
                     <span className="h-2 w-2 rounded-full bg-primary" />
@@ -50,9 +66,16 @@ export default async function HomePage() {
                     Diésel medio: {insights.avgDiesel?.toFixed(3) ?? "--"} €/l
                   </span>
                 </div>
+
+                <div className="mt-8 grid gap-3 sm:grid-cols-3">
+                  {TRUST_ITEMS.map((item) => (
+                    <div key={item} className="rounded-[24px] border border-white/60 bg-white/70 px-4 py-4">
+                      <p className="text-sm font-medium text-slate-700">{item}</p>
+                    </div>
+                  ))}
+                </div>
               </div>
 
-              {/* Radar del día */}
               <div className="panel p-5 sm:p-6">
                 <p className="text-[11px] uppercase tracking-[0.22em] text-muted">Radar del día</p>
                 <h2 className="section-title mt-3 text-2xl">Ciudades con combustible más barato</h2>
@@ -84,7 +107,34 @@ export default async function HomePage() {
           </div>
         </section>
 
-        {/* ── Map section ─────────────────────────────────── */}
+        <section className="container-app mt-8 grid gap-4 lg:grid-cols-3">
+          <FuelIndexCard
+            label="Índice nacional gasolina 95"
+            value={fuelIndex.avgGas95}
+            variation={fuelIndex.weeklyDeltaGas95}
+            updatedAt={fuelIndex.updatedAt}
+          />
+          <FuelIndexCard
+            label="Índice nacional diésel"
+            value={fuelIndex.avgDiesel}
+            variation={fuelIndex.weeklyDeltaDiesel}
+            updatedAt={fuelIndex.updatedAt}
+          />
+          <div className="panel p-5 sm:p-6">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-400">
+              Lectura rápida
+            </p>
+            <h2 className="section-title mt-3 text-2xl">Dónde hay más ahorro ahora</h2>
+            <p className="mt-3 text-sm leading-7 text-slate-600">
+              Usa el mapa de calor para detectar clústeres baratos y el optimizador de ruta para no
+              desviarte de más cuando estás viajando.
+            </p>
+            <div className="mt-4 rounded-[24px] bg-slate-50 px-4 py-4 text-sm text-slate-600">
+              Variación semanal calculada sobre snapshots históricos persistidos en la base local.
+            </div>
+          </div>
+        </section>
+
         <section className="container-app mt-8">
           <FuelMapExperience
             provinces={filterOptions.provinces}
@@ -93,9 +143,7 @@ export default async function HomePage() {
           />
         </section>
 
-        {/* ── Rankings + Blog ─────────────────────────────── */}
         <section className="container-app mt-14 grid gap-6 lg:grid-cols-2">
-          {/* Ranking nacional */}
           <div className="panel p-8">
             <p className="section-kicker">Comparación rápida</p>
             <h2 className="section-title mt-3 text-3xl">Ranking nacional de gasolina 95</h2>
@@ -127,7 +175,6 @@ export default async function HomePage() {
             </div>
           </div>
 
-          {/* Blog */}
           <div className="panel p-8">
             <p className="text-[11px] font-semibold uppercase tracking-[0.28em] text-accent-dark">
               Blog y análisis

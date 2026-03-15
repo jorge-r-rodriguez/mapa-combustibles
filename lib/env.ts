@@ -8,6 +8,7 @@ const envSchema = z.object({
     .default(
       "https://sedeaplicaciones.minetur.gob.es/ServiciosRESTCarburantes/PreciosCarburantes/EstacionesTerrestres/"
     ),
+  OSRM_API_URL: z.string().url().default("https://router.project-osrm.org"),
   NEXT_PUBLIC_SITE_URL: z.string().url().default("http://localhost:3000"),
   NEXT_PUBLIC_DEFAULT_CENTER_LAT: z.coerce.number().default(40.4168),
   NEXT_PUBLIC_DEFAULT_CENTER_LON: z.coerce.number().default(-3.7038),
@@ -17,6 +18,7 @@ const envSchema = z.object({
 export const env = envSchema.parse({
   DATABASE_URL: process.env.DATABASE_URL,
   GOV_FUEL_DATASET_URL: process.env.GOV_FUEL_DATASET_URL,
+  OSRM_API_URL: process.env.OSRM_API_URL,
   NEXT_PUBLIC_SITE_URL: process.env.NEXT_PUBLIC_SITE_URL,
   NEXT_PUBLIC_DEFAULT_CENTER_LAT: process.env.NEXT_PUBLIC_DEFAULT_CENTER_LAT,
   NEXT_PUBLIC_DEFAULT_CENTER_LON: process.env.NEXT_PUBLIC_DEFAULT_CENTER_LON,

@@ -1,7 +1,8 @@
 "use client";
 
-import { memo, useEffect } from "react";
+import { memo, useEffect, useMemo, useRef } from "react";
 import L from "leaflet";
+import "leaflet.heat";
 import markerIcon2x from "leaflet/dist/images/marker-icon-2x.png";
 import markerIcon from "leaflet/dist/images/marker-icon.png";
 import markerShadow from "leaflet/dist/images/marker-shadow.png";
@@ -10,13 +11,21 @@ import {
   Circle,
   MapContainer,
   Marker,
+  Polyline,
   Popup,
   TileLayer,
   useMap,
   useMapEvents
 } from "react-leaflet";
-import type { FuelType, StationFeatureCollection, StationListItem } from "@/lib/types";
-import { formatDate } from "@/lib/utils";
+import { getPriceThresholds, getPriceToneFromThresholds, getPriceToneMeta } from "@/lib/pricing";
+import type {
+  FuelType,
+  RouteGeometryPoint,
+  StationFeatureCollection,
+  StationListItem
+} from "@/lib/types";
+import { formatDate, formatNumber } from "@/lib/utils";
+import { StationPriceBadge } from "@/components/StationPriceBadge";
 
 const userLocationIcon = L.icon({
   iconRetinaUrl: markerIcon2x.src,
@@ -26,16 +35,6 @@ const userLocationIcon = L.icon({
   iconAnchor: [12, 41],
   popupAnchor: [1, -34],
   shadowSize: [41, 41]
-});
-
-const stationMarkerIcon = L.icon({
-  iconUrl: "/icons/gas-station-marker.svg",
-  shadowUrl: markerShadow.src,
-  iconSize: [36, 44],
-  iconAnchor: [18, 44],
-  popupAnchor: [0, -38],
-  shadowSize: [41, 41],
-  shadowAnchor: [12, 40]
 });
 
 type Bounds = {
@@ -93,15 +92,14 @@ function BoundsReporter({ onBoundsChange }: { onBoundsChange?: (bounds: Bounds) 
 }
 
 function FocusMap({
-  target
+  target,
+  routeGeometry
 }: {
-  target?: {
-    lat: number;
-    lon: number;
-    zoom?: number;
-  } | null;
+  target?: { lat: number; lon: number; zoom?: number } | null;
+  routeGeometry?: RouteGeometryPoint[];
 }) {
   const map = useMap();
+  const lastRouteKey = useRef<string | null>(null);
 
   useEffect(() => {
     if (!target) {
@@ -110,9 +108,80 @@ function FocusMap({
 
     map.flyTo([target.lat, target.lon], target.zoom ?? 11, {
       animate: true,
-      duration: 1.2
+      duration: 1.1
     });
   }, [map, target]);
+
+  useEffect(() => {
+    if (!routeGeometry?.length) {
+      return;
+    }
+
+    const nextKey = `${routeGeometry[0]?.join(",")}-${routeGeometry[routeGeometry.length - 1]?.join(",")}`;
+    if (lastRouteKey.current === nextKey) {
+      return;
+    }
+
+    lastRouteKey.current = nextKey;
+    map.fitBounds(routeGeometry.map(([lat, lon]) => [lat, lon] as [number, number]), {
+      padding: [48, 48]
+    });
+  }, [map, routeGeometry]);
+
+  return null;
+}
+
+function HeatLayer({
+  points,
+  enabled
+}: {
+  points: Array<[number, number, number]>;
+  enabled: boolean;
+}) {
+  const map = useMap();
+  const layerRef = useRef<L.Layer | null>(null);
+
+  useEffect(() => {
+    const leafletHeat = L as typeof L & {
+      heatLayer: (
+        latlngs: Array<[number, number, number]>,
+        options: Record<string, unknown>
+      ) => L.Layer;
+    };
+
+    if (!enabled || !points.length || typeof leafletHeat.heatLayer !== "function") {
+      if (layerRef.current) {
+        map.removeLayer(layerRef.current);
+        layerRef.current = null;
+      }
+      return;
+    }
+
+    if (layerRef.current) {
+      map.removeLayer(layerRef.current);
+    }
+
+    layerRef.current = leafletHeat.heatLayer(points, {
+      radius: 28,
+      blur: 20,
+      maxZoom: 12,
+      minOpacity: 0.3,
+      gradient: {
+        0.2: "#22c55e",
+        0.55: "#f59e0b",
+        1: "#ef4444"
+      }
+    });
+
+    layerRef.current.addTo(map);
+
+    return () => {
+      if (layerRef.current) {
+        map.removeLayer(layerRef.current);
+        layerRef.current = null;
+      }
+    };
+  }, [enabled, map, points]);
 
   return null;
 }
@@ -129,42 +198,18 @@ function getDirectionsUrl(
   return `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(destination)}${origin}&travelmode=driving`;
 }
 
-function getFuelLabel(fuel: FuelType) {
-  return fuel === "gas95" ? "Gasolina 95" : "Diésel";
-}
-
-function PopupPricePill({
-  label,
-  value,
-  tone,
-  active
-}: {
-  label: string;
-  value: number | null | undefined;
-  tone: "primary" | "accent";
-  active?: boolean;
-}) {
-  return (
-    <div
-      className={`flex flex-col items-center rounded-2xl px-4 py-3 transition ${active
-        ? tone === "primary"
-          ? "bg-primary shadow-[0_6px_20px_rgba(11,99,246,0.28)]"
-          : "bg-accent shadow-[0_6px_20px_rgba(27,182,106,0.28)]"
-        : "bg-white/10 ring-1 ring-white/20"
-        }`}
-    >
-      <p className={`text-[9px] font-semibold uppercase tracking-[0.18em] ${active ? "text-white/70" : "text-white/50"
-        }`}>
-        {label}
-      </p>
-      <p className={`mt-1 text-[17px] font-bold leading-none ${active ? "text-white" : "text-white/60"
-        }`}>
-        {value?.toFixed(3) ?? "--"}
-        <span className={`ml-0.5 text-[11px] font-semibold ${active ? "text-white/80" : "text-white/40"
-          }`}> €</span>
-      </p>
-    </div>
-  );
+function createStationMarker(price: number | null | undefined, toneClass: string) {
+  return L.divIcon({
+    className: "fuel-marker-wrapper",
+    html: `
+      <div class="fuel-marker ${toneClass}">
+        <span>${price != null ? `${price.toFixed(3)} €` : "--"}</span>
+      </div>
+    `,
+    iconSize: [72, 38],
+    iconAnchor: [36, 38],
+    popupAnchor: [0, -32]
+  });
 }
 
 function MobileStationPreview({
@@ -179,56 +224,40 @@ function MobileStationPreview({
   onClose?: () => void;
 }) {
   const activePrice = fuel === "gas95" ? station.priceGas95 : station.priceDiesel;
+  const tone = getPriceToneFromThresholds(activePrice, {
+    cheapMax: activePrice ?? 0,
+    expensiveMin: activePrice ?? 0
+  });
 
   return (
     <div className="pointer-events-none absolute inset-x-3 bottom-3 z-[700] sm:hidden">
-      <div className="animate-slide-up pointer-events-auto overflow-hidden rounded-[24px] shadow-[0_20px_50px_rgba(15,23,42,0.22)]">
-        {/* Dark header */}
-        <div className="relative bg-[linear-gradient(135deg,#0f172a_0%,#1e293b_100%)] px-4 pb-4 pt-4">
-          <div className="flex items-start justify-between gap-2">
-            <div className="min-w-0">
-              <p className="text-[9px] font-medium uppercase tracking-[0.22em] text-slate-400">
-                {station.city} · {station.province}
-              </p>
-              <h3 className="mt-1 text-[17px] font-bold leading-tight text-white">{station.brand}</h3>
-              <p className="mt-1 text-[12px] leading-5 text-slate-400">{station.address}</p>
-            </div>
-            <button
-              type="button"
-              onClick={onClose}
-              aria-label="Cerrar ficha de estación"
-              className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-white/10 text-white/70 transition hover:bg-white/20 hover:text-white"
-            >
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none">
-                <path d="M18 6L6 18M6 6l12 12" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" />
-              </svg>
-            </button>
+      <div className="pointer-events-auto overflow-hidden rounded-[24px] bg-white shadow-[0_20px_50px_rgba(15,23,42,0.22)]">
+        <div className="flex items-start justify-between gap-3 border-b border-stroke bg-slate-900 px-4 py-4">
+          <div>
+            <p className="text-[10px] uppercase tracking-[0.18em] text-slate-300">{station.city}</p>
+            <h3 className="mt-1 text-base font-semibold text-white">{station.brand}</h3>
+            <p className="mt-1 text-xs text-slate-300">{station.address}</p>
           </div>
-          <div className="mt-3 grid grid-cols-2 gap-2">
-            <PopupPricePill label="Gasolina 95" value={station.priceGas95} tone="primary" active={fuel === "gas95"} />
-            <PopupPricePill label="Diésel" value={station.priceDiesel} tone="accent" active={fuel === "diesel"} />
-          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="flex h-11 w-11 items-center justify-center rounded-full bg-slate-800 text-slate-300 transition hover:bg-slate-700 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/50"
+            aria-label="Cerrar ficha de estación"
+          >
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" aria-hidden="true" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+              <path d="M18 6L6 18M6 6l12 12" />
+            </svg>
+          </button>
         </div>
-
-        {/* White body */}
-        <div className="bg-white px-4 pb-4 pt-3">
-          <div className="flex items-center justify-between text-[11px] text-slate-500">
-            <div className="flex items-center gap-1.5">
-              <span className="h-1.5 w-1.5 rounded-full bg-accent" />
-              <span>Datos oficiales · {formatDate(station.updatedAt)}</span>
-            </div>
-            <span className="rounded-full bg-slate-100 px-2 py-0.5">ID {station.id}</span>
-          </div>
+        <div className="space-y-3 px-4 py-4">
+          <StationPriceBadge price={activePrice} tone={tone} label="Precio visible" />
           <a
             href={getDirectionsUrl(station, userLocation)}
             target="_blank"
             rel="noreferrer"
-            className="mt-3 flex h-11 items-center justify-center gap-2 rounded-2xl bg-[linear-gradient(135deg,#0b63f6,#1a7df8)] px-4 text-sm font-semibold !text-white no-underline shadow-[0_8px_20px_rgba(11,99,246,0.3)] transition hover:brightness-105 hover:!text-white"
+            className="flex h-11 items-center justify-center rounded-2xl bg-primary px-4 text-sm font-semibold text-white"
           >
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none">
-              <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7Zm0 9.5A2.5 2.5 0 1 1 12 6a2.5 2.5 0 0 1 0 5Z" fill="white" />
-            </svg>
-            {userLocation ? "Ir ahora con Google Maps" : "Abrir en Google Maps"}
+            Abrir ruta en Google Maps
           </a>
         </div>
       </div>
@@ -239,6 +268,8 @@ function MobileStationPreview({
 function StationsMapClientComponent({
   stations,
   fuel,
+  showHeatmap = false,
+  routeGeometry,
   onBoundsChange,
   onStationSelect,
   selectedStation,
@@ -249,6 +280,8 @@ function StationsMapClientComponent({
 }: {
   stations: StationFeatureCollection;
   fuel: FuelType;
+  showHeatmap?: boolean;
+  routeGeometry?: RouteGeometryPoint[];
   onBoundsChange?: (bounds: Bounds) => void;
   onStationSelect?: (station: StationListItem | null) => void;
   selectedStation?: StationListItem | null;
@@ -257,21 +290,50 @@ function StationsMapClientComponent({
   center: [number, number];
   zoom?: number;
 }) {
+  const activePrices = useMemo(
+    () =>
+      stations.features
+        .map((feature) =>
+          fuel === "gas95" ? feature.properties.priceGas95 : feature.properties.priceDiesel
+        )
+        .filter((value): value is number => value != null),
+    [fuel, stations.features]
+  );
+
+  const thresholds = useMemo(() => getPriceThresholds(activePrices), [activePrices]);
+
+  const heatPoints = useMemo(
+    () =>
+      stations.features.flatMap((feature) => {
+        const price = fuel === "gas95" ? feature.properties.priceGas95 : feature.properties.priceDiesel;
+        if (price == null) {
+          return [];
+        }
+
+        const tone = getPriceToneFromThresholds(price, thresholds);
+        const meta = getPriceToneMeta(tone);
+        return [[feature.properties.lat, feature.properties.lon, meta.heatWeight] as [number, number, number]];
+      }),
+    [fuel, stations.features, thresholds]
+  );
+
   return (
     <div className="relative h-[520px] w-full sm:h-[620px] lg:h-[840px]">
-      <MapContainer
-        center={center}
-        zoom={zoom}
-        scrollWheelZoom
-        className="h-full w-full"
-        preferCanvas
-      >
+      <MapContainer center={center} zoom={zoom} scrollWheelZoom className="h-full w-full" preferCanvas>
         <TileLayer
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
         />
         <BoundsReporter onBoundsChange={onBoundsChange} />
-        <FocusMap target={focusTarget} />
+        <FocusMap target={focusTarget} routeGeometry={routeGeometry} />
+        <HeatLayer points={heatPoints} enabled={showHeatmap} />
+
+        {routeGeometry?.length ? (
+          <Polyline
+            positions={routeGeometry}
+            pathOptions={{ color: "#0b63f6", weight: 5, opacity: 0.75, dashArray: "10 10" }}
+          />
+        ) : null}
 
         {userLocation ? (
           <>
@@ -290,88 +352,62 @@ function StationsMapClientComponent({
           {stations.features.map((feature) => {
             const station = feature.properties;
             const activePrice = fuel === "gas95" ? station.priceGas95 : station.priceDiesel;
+            const tone = getPriceToneFromThresholds(activePrice, thresholds);
+            const toneMeta = getPriceToneMeta(tone);
+            const markerIcon = createStationMarker(activePrice, toneMeta.markerClass);
 
             return (
               <Marker
-                key={station.id}
+                key={`${station.id}-${fuel}`}
                 position={[station.lat, station.lon]}
-                icon={stationMarkerIcon}
-                eventHandlers={
-                  {
-                    click: () => onStationSelect?.(station),
-                    touchstart: () => onStationSelect?.(station)
-                  } as L.LeafletEventHandlerFnMap
-                }
+                icon={markerIcon}
+                eventHandlers={{
+                  click: () => onStationSelect?.(station)
+                }}
               >
                 <Popup
-                  minWidth={0}
-                  closeButton={false}
+                  minWidth={280}
                   autoPan
                   keepInView
-                  offset={[0, -12]}
+                  offset={[0, -18]}
                   autoPanPaddingTopLeft={[24, 96]}
                   autoPanPaddingBottomRight={[24, 24]}
                   className="[&_.leaflet-popup-content]:m-0"
                 >
-                  {/* ── Premium popup card ───────────────── */}
-                  <div className="w-[300px] overflow-hidden rounded-[24px] shadow-[0_24px_60px_rgba(15,23,42,0.22)]">
-
-                    {/* Dark gradient header */}
-                    <div className="relative bg-[linear-gradient(145deg,#0f172a_0%,#1a2744_60%,#0f2847_100%)] px-4 pb-4 pt-4">
-                      {/* Location + brand */}
-                      <div className="flex items-start gap-2">
-                        <div className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-white/10">
-                          <svg width="11" height="11" viewBox="0 0 24 24" fill="none">
-                            <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7Zm0 9.5A2.5 2.5 0 1 1 12 6a2.5 2.5 0 0 1 0 5Z" fill="rgba(255,255,255,0.7)" />
-                          </svg>
-                        </div>
-                        <div className="min-w-0">
-                          <p className="text-[9px] font-medium uppercase tracking-[0.22em] text-slate-400">
-                            {station.city}{station.postalCode ? ` · ${station.postalCode}` : ""} — {station.province}
-                          </p>
-                          <h3 className="mt-0.5 text-[18px] font-bold leading-tight tracking-tight text-white">
-                            {station.brand}
-                          </h3>
-                          <p className="mt-0.5 text-[12px] leading-5 text-slate-400">{station.address}</p>
-                        </div>
-                      </div>
-
-                      {/* Price pills inside header */}
-                      <div className="mt-3.5 grid grid-cols-2 gap-2">
-                        <PopupPricePill label="Gasolina 95" value={station.priceGas95} tone="primary" active={fuel === "gas95"} />
-                        <PopupPricePill label="Diésel" value={station.priceDiesel} tone="accent" active={fuel === "diesel"} />
-                      </div>
+                  <div className="w-[280px] overflow-hidden rounded-[22px] bg-white shadow-[0_24px_60px_rgba(15,23,42,0.18)]">
+                    <div className="border-b border-stroke bg-slate-900 px-4 py-4">
+                      <p className="text-[10px] uppercase tracking-[0.18em] text-slate-300">
+                        {station.city}
+                        {station.postalCode ? ` · ${station.postalCode}` : ""}
+                      </p>
+                      <h3 className="mt-1 text-lg font-semibold text-white">{station.brand}</h3>
+                      <p className="mt-1 text-xs leading-5 text-slate-300">{station.address}</p>
                     </div>
-
-                    {/* White body */}
-                    <div className="bg-white px-4 pb-4 pt-3 space-y-3">
-                      {/* Update status */}
-                      <div className="flex items-center justify-between rounded-2xl bg-slate-50 px-3 py-2.5">
-                        <div className="flex items-center gap-2">
-                          <span className="flex h-5 w-5 items-center justify-center rounded-full bg-accent/15">
-                            <svg width="9" height="9" viewBox="0 0 24 24" fill="none">
-                              <path d="M5 13l4 4L19 7" stroke="#13854d" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
-                            </svg>
-                          </span>
-                          <div>
-                            <p className="text-[9px] font-semibold uppercase tracking-[0.16em] text-slate-400">Dato oficial</p>
-                            <p className="text-[12px] font-medium text-slate-700">{formatDate(station.updatedAt)}</p>
-                          </div>
-                        </div>
-                        <span className="rounded-full bg-accent/10 px-2.5 py-1 text-[10px] font-bold text-accent-dark">✓ Oficial</span>
+                    <div className="space-y-3 px-4 py-4">
+                      <div className="grid grid-cols-2 gap-2">
+                        <StationPriceBadge
+                          price={station.priceGas95}
+                          tone={getPriceToneFromThresholds(station.priceGas95, thresholds)}
+                          label="Gasolina 95"
+                          compact
+                        />
+                        <StationPriceBadge
+                          price={station.priceDiesel}
+                          tone={getPriceToneFromThresholds(station.priceDiesel, thresholds)}
+                          label="Diésel"
+                          compact
+                        />
                       </div>
-
-                      {/* CTA button */}
+                      <div className="rounded-2xl bg-slate-50 px-3 py-2 text-xs text-slate-500">
+                        Datos oficiales actualizados el {formatDate(station.updatedAt)}
+                      </div>
                       <a
                         href={getDirectionsUrl(station, userLocation)}
                         target="_blank"
                         rel="noreferrer"
-                        className="flex h-11 items-center justify-center gap-2 rounded-[14px] bg-[linear-gradient(135deg,#0b63f6_0%,#1a7df8_100%)] px-4 text-sm font-semibold !text-white no-underline shadow-[0_8px_24px_rgba(11,99,246,0.32)] transition hover:brightness-105 hover:shadow-[0_10px_28px_rgba(11,99,246,0.4)] hover:!text-white"
+                        className="flex h-11 items-center justify-center rounded-2xl bg-primary px-4 text-sm font-semibold text-white"
                       >
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
-                          <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7Zm0 9.5A2.5 2.5 0 1 1 12 6a2.5 2.5 0 0 1 0 5Z" fill="white" />
-                        </svg>
-                        {userLocation ? "Ir ahora con Google Maps" : "Abrir en Google Maps"}
+                        {userLocation ? "Navegar hasta esta estación" : "Abrir en Google Maps"}
                       </a>
                     </div>
                   </div>
@@ -381,6 +417,12 @@ function StationsMapClientComponent({
           })}
         </MarkerClusterGroup>
       </MapContainer>
+
+      <div className="pointer-events-none absolute left-3 top-3 z-[500] sm:hidden">
+        <div className="pointer-events-auto rounded-2xl border border-white/70 bg-white/92 px-3 py-2 text-xs font-semibold text-slate-600 shadow-panel">
+          {formatNumber(stations.features.length)} estaciones en pantalla
+        </div>
+      </div>
 
       {selectedStation ? (
         <MobileStationPreview

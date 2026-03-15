@@ -2,7 +2,12 @@
 
 import dynamic from "next/dynamic";
 import { memo } from "react";
-import type { FuelType, StationFeatureCollection, StationListItem } from "@/lib/types";
+import type {
+  FuelType,
+  RouteGeometryPoint,
+  StationFeatureCollection,
+  StationListItem
+} from "@/lib/types";
 
 const StationsMapClient = dynamic(
   () => import("./StationsMapClient").then((module) => module.StationsMapClient),
@@ -19,6 +24,8 @@ const StationsMapClient = dynamic(
 function StationsMapComponent(props: {
   stations: StationFeatureCollection;
   fuel: FuelType;
+  showHeatmap?: boolean;
+  routeGeometry?: RouteGeometryPoint[];
   onBoundsChange?: (bounds: {
     minLat: number;
     minLon: number;

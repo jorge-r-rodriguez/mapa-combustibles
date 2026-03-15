@@ -1,6 +1,7 @@
 import type { FuelType, StationListItem } from "@/lib/types";
 import { formatDate, formatNumber } from "@/lib/utils";
-import { PriceBadge } from "@/components/PriceBadge";
+import { getPriceToneFromThresholds } from "@/lib/pricing";
+import { StationPriceBadge } from "@/components/StationPriceBadge";
 
 export function StationCard({
   station,
@@ -12,6 +13,11 @@ export function StationCard({
   compact?: boolean;
 }) {
   const fuelBorderClass = fuel === "gas95" ? "border-l-primary" : "border-l-accent";
+  const activePrice = fuel === "gas95" ? station.priceGas95 : station.priceDiesel;
+  const tone = getPriceToneFromThresholds(activePrice, {
+    cheapMax: activePrice ?? 0,
+    expensiveMin: activePrice ?? 0
+  });
 
   return (
     <article
@@ -19,7 +25,7 @@ export function StationCard({
     >
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <p className="text-[10px] uppercase tracking-[0.22em] text-slate-400">{station.province}</p>
+          <p className="text-[10px] uppercase tracking-[0.22em] text-slate-500">{station.province}</p>
           <h3 className={`mt-1 font-semibold text-ink ${compact ? "text-[15px]" : "text-base"}`}>
             {station.brand}
           </h3>
@@ -31,26 +37,26 @@ export function StationCard({
             {station.postalCode ? ` · ${station.postalCode}` : ""}
           </p>
         </div>
-        <PriceBadge
-          fuel={fuel}
-          price={fuel === "gas95" ? station.priceGas95 : station.priceDiesel}
-          compact
-        />
+        <StationPriceBadge price={activePrice} tone={tone} compact />
       </div>
-      <div
-        className={`mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 ${compact ? "text-[12px]" : "text-sm"
-          }`}
-      >
-        <span className={fuel === "gas95" ? "font-medium text-primary" : "text-slate-500"}>
-          ⛽ {station.priceGas95?.toFixed(3) ?? "--"} €/l
+
+      <div className={`mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 ${compact ? "text-[12px]" : "text-sm"}`}>
+        <span className={fuel === "gas95" ? "font-medium text-primary" : "text-slate-600"}>
+          Gasolina 95 {station.priceGas95?.toFixed(3) ?? "--"} €/l
         </span>
-        <span className={fuel === "diesel" ? "font-medium text-accent-dark" : "text-slate-500"}>
-          💧 {station.priceDiesel?.toFixed(3) ?? "--"} €/l
+        <span className={fuel === "diesel" ? "font-medium text-accent-dark" : "text-slate-600"}>
+          Diésel {station.priceDiesel?.toFixed(3) ?? "--"} €/l
         </span>
         {station.distanceKm != null ? (
-          <span className="text-slate-400">{formatNumber(station.distanceKm, 1)} km</span>
+          <span className="text-slate-500">{formatNumber(station.distanceKm, 1)} km</span>
         ) : null}
-        <span className="text-slate-400">Actualizado {formatDate(station.updatedAt)}</span>
+        {"distanceToRouteKm" in station &&
+        typeof station.distanceToRouteKm === "number" ? (
+          <span className="text-slate-500">
+            A {formatNumber(station.distanceToRouteKm, 1)} km de la ruta
+          </span>
+        ) : null}
+        <span className="text-slate-500">Actualizado {formatDate(station.updatedAt)}</span>
       </div>
     </article>
   );

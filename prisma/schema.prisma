@@ -29,6 +29,17 @@ model Station {
   @@index([priceDiesel])
 }
 
+model FuelPriceSnapshot {
+  id              Int      @id @default(autoincrement())
+  avgGas95        Float?
+  avgDiesel       Float?
+  totalStations   Int
+  sourceUpdatedAt DateTime?
+  capturedAt      DateTime @default(now())
+
+  @@index([capturedAt])
+}
+
 model SyncState {
   key             String    @id
   lastAttemptAt   DateTime?

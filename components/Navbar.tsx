@@ -7,7 +7,8 @@ import { useState } from "react";
 const links = [
   { href: "/", label: "Mapa" },
   { href: "/blog", label: "Blog" },
-  { href: "/gasolina-barata/madrid", label: "Ciudades" }
+  { href: "/gasolina-barata/madrid", label: "Ciudades" },
+  { href: "/gasolineras-mas-baratas-espana", label: "Ranking" }
 ];
 
 function FuelDropIcon() {

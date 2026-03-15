@@ -79,6 +79,41 @@ async function fetchGovernmentStations() {
   return (await response.json()) as GovernmentResponse;
 }
 
+async function capturePriceSnapshot(sourceUpdatedAt: Date) {
+  const summary = await prisma.station.aggregate({
+    _count: {
+      _all: true
+    },
+    _avg: {
+      priceGas95: true,
+      priceDiesel: true
+    }
+  });
+
+  if (!summary._count._all) {
+    return;
+  }
+
+  const existing = await prisma.fuelPriceSnapshot.findFirst({
+    where: {
+      sourceUpdatedAt
+    }
+  });
+
+  if (existing) {
+    return;
+  }
+
+  await prisma.fuelPriceSnapshot.create({
+    data: {
+      avgGas95: summary._avg.priceGas95,
+      avgDiesel: summary._avg.priceDiesel,
+      totalStations: summary._count._all,
+      sourceUpdatedAt
+    }
+  });
+}
+
 export async function syncStations() {
   const syncStartedAt = new Date();
 
@@ -115,6 +150,8 @@ export async function syncStations() {
       });
     });
 
+    await capturePriceSnapshot(updatedAt);
+
     return {
       total: stations.length,
       updatedAt
@@ -144,7 +181,7 @@ export async function syncStations() {
 let refreshPromise: Promise<void> | null = null;
 
 export async function ensureStationsFresh() {
-  const [total, syncState] = await Promise.all([
+  const [total, syncState, latestSnapshot] = await Promise.all([
     prisma.station.count(),
     prisma.syncState.findUnique({
       where: {
@@ -152,6 +189,11 @@ export async function ensureStationsFresh() {
       },
       select: {
         lastSuccessAt: true
+      }
+    }),
+    prisma.fuelPriceSnapshot.findFirst({
+      orderBy: {
+        capturedAt: "desc"
       }
     })
   ]);
@@ -162,6 +204,9 @@ export async function ensureStationsFresh() {
     Date.now() - syncState.lastSuccessAt.getTime() < STATION_SYNC_INTERVAL_MS;
 
   if (hasFreshData) {
+    if (total > 0 && syncState?.lastSuccessAt && !latestSnapshot) {
+      await capturePriceSnapshot(syncState.lastSuccessAt);
+    }
     return;
   }
 

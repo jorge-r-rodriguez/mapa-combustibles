@@ -81,7 +81,8 @@ export function FilterPanel({
             <button
               type="button"
               onClick={() => onChange({ ...filters, fuel: "gas95" })}
-              className={`flex items-center justify-center gap-1.5 whitespace-nowrap rounded-2xl px-2 py-3 text-[13px] font-semibold transition ${filters.fuel === "gas95"
+              aria-pressed={filters.fuel === "gas95"}
+              className={`flex items-center justify-center gap-1.5 whitespace-nowrap rounded-2xl px-2 py-3 text-[13px] font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 ${filters.fuel === "gas95"
                 ? "bg-primary text-white shadow-md shadow-primary/20"
                 : "bg-slate-100 text-slate-700 hover:bg-slate-200"
                 }`}
@@ -92,7 +93,8 @@ export function FilterPanel({
             <button
               type="button"
               onClick={() => onChange({ ...filters, fuel: "diesel" })}
-              className={`flex items-center justify-center gap-1.5 whitespace-nowrap rounded-2xl px-2 py-3 text-[13px] font-semibold transition ${filters.fuel === "diesel"
+              aria-pressed={filters.fuel === "diesel"}
+              className={`flex items-center justify-center gap-1.5 whitespace-nowrap rounded-2xl px-2 py-3 text-[13px] font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50 ${filters.fuel === "diesel"
                 ? "bg-accent text-white shadow-md shadow-accent/20"
                 : "bg-slate-100 text-slate-700 hover:bg-slate-200"
                 }`}
@@ -209,10 +211,10 @@ export function FilterPanel({
           <button
             type="button"
             onClick={() => onChange({ ...DEFAULT_FILTERS, fuel: filters.fuel })}
-            className="flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-medium text-slate-500 transition hover:bg-slate-100 hover:text-slate-700"
+            className="flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-medium text-slate-600 transition hover:bg-slate-100 hover:text-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400"
           >
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-              <path d="M18 6L6 18M6 6l12 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <path d="M18 6L6 18M6 6l12 12" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" />
             </svg>
             Limpiar filtros
           </button>

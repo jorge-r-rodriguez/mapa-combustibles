@@ -1,8 +1,9 @@
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import Link from "next/link";
-import { Navbar } from "@/components/Navbar";
+import { CityStatsCard } from "@/components/CityStatsCard";
 import { MapCard } from "@/components/MapCard";
+import { Navbar } from "@/components/Navbar";
 import { PriceChart } from "@/components/PriceChart";
 import { StationCard } from "@/components/StationCard";
 import { StationsMap } from "@/components/StationsMap";
@@ -58,34 +59,36 @@ export default async function CheapCityPage({ params }: { params: { city: string
             Gasolina barata en {page.city}
           </h1>
           <p className="mt-5 max-w-3xl text-base leading-7 text-slate-600 sm:text-lg sm:leading-8">
-            Consulta el mapa local, el ranking de estaciones más económicas y el precio medio actual
-            para gasolina 95 y diésel en {page.city}, {page.province}.
+            Consulta el mapa local, la comparativa de precios y la mejor estación disponible ahora
+            en {page.city}, {page.province}.
           </p>
 
-          <div className="mt-7 grid gap-3 sm:grid-cols-3">
-            <div className="panel px-4 py-3">
-              <p className="text-[11px] uppercase tracking-[0.18em] text-slate-400">Media gasolina 95</p>
-              <p className="mt-1 text-lg font-semibold text-ink">
-                {page.avgGas95?.toFixed(3) ?? "--"} €/l
-              </p>
-            </div>
-            <div className="panel px-4 py-3">
-              <p className="text-[11px] uppercase tracking-[0.18em] text-slate-400">Media diésel</p>
-              <p className="mt-1 text-lg font-semibold text-ink">
-                {page.avgDiesel?.toFixed(3) ?? "--"} €/l
-              </p>
-            </div>
-            <div className="panel px-4 py-3">
-              <p className="text-[11px] uppercase tracking-[0.18em] text-slate-400">Actualizado</p>
-              <p className="mt-1 text-lg font-semibold text-ink">{formatDate(page.updatedAt)}</p>
-            </div>
+          <div className="mt-7 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+            <CityStatsCard
+              label="Precio medio gasolina"
+              value={page.avgGas95 != null ? `${page.avgGas95.toFixed(3)} €/l` : "--"}
+              tone="primary"
+            />
+            <CityStatsCard
+              label="Precio medio diésel"
+              value={page.avgDiesel != null ? `${page.avgDiesel.toFixed(3)} €/l` : "--"}
+              tone="accent"
+            />
+            <CityStatsCard
+              label="Gasolinera más barata"
+              value={cheapestStation ? `${cheapestStation.brand} · ${cheapestStation.priceGas95?.toFixed(3)} €/l` : "--"}
+            />
+            <CityStatsCard
+              label="Fecha de actualización"
+              value={formatDate(page.updatedAt)}
+            />
           </div>
         </section>
 
         <section className="mt-8">
           <MapCard
             title={`Mapa de gasolineras en ${page.city}`}
-            subtitle="Explora las estaciones de la ciudad con sus precios oficiales actuales y revisa una selección de las opciones más competitivas."
+            subtitle="Explora las estaciones de la ciudad con marcadores por precio, heatmap opcional y shortlist local de las opciones más competitivas."
             aside={
               <div className="flex h-full min-h-0 flex-col">
                 <div className="border-b border-stroke px-5 py-5">
@@ -105,6 +108,7 @@ export default async function CheapCityPage({ params }: { params: { city: string
               center={[page.center.lat, page.center.lon]}
               zoom={12}
               fuel="gas95"
+              showHeatmap
               stations={page.geoJson}
             />
           </MapCard>
@@ -117,7 +121,7 @@ export default async function CheapCityPage({ params }: { params: { city: string
             </p>
             <h2 className="section-title mt-3 text-3xl">Comparativa de precios en la ciudad</h2>
             <p className="mt-3 max-w-2xl text-sm leading-7 text-slate-600">
-              Este gráfico muestra las estaciones con gasolina 95 más competitiva en {page.city}.
+              Visualiza de un vistazo las estaciones con gasolina 95 más competitiva en {page.city}.
             </p>
             <div className="mt-6">
               <PriceChart stations={page.chart} />
@@ -187,8 +191,8 @@ export default async function CheapCityPage({ params }: { params: { city: string
             <p className="section-kicker">Ranking local</p>
             <h2 className="section-title mt-3 text-3xl">Estaciones más baratas ahora</h2>
             <p className="mt-3 text-sm leading-7 text-slate-600">
-              Una vista más completa de las opciones de repostaje en {page.city} para que no
-              dependas solo del mapa.
+              Una vista más completa de las opciones de repostaje en {page.city} para que no dependas
+              solo del mapa.
             </p>
           </div>
 
@@ -198,6 +202,7 @@ export default async function CheapCityPage({ params }: { params: { city: string
             ))}
           </div>
         </section>
+
       </main>
     </>
   );

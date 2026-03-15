@@ -5,6 +5,7 @@ import "leaflet/dist/leaflet.css";
 import "leaflet.markercluster/dist/MarkerCluster.css";
 import "leaflet.markercluster/dist/MarkerCluster.Default.css";
 import "@/app/globals.css";
+import { ScrollToTopOnRouteChange } from "@/components/ScrollToTopOnRouteChange";
 import { env } from "@/lib/env";
 
 const heading = Space_Grotesk({
@@ -52,6 +53,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="es" suppressHydrationWarning className={`${heading.variable} ${body.variable}`}>
       <body className="font-[family-name:var(--font-body)]">
+        <ScrollToTopOnRouteChange />
         {children}
 
         <footer className="mt-4 border-t border-stroke/80 bg-surface/60 py-12">
@@ -86,6 +88,11 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                   <li>
                     <Link href="/gasolina-barata/madrid" className="transition hover:text-primary">
                       Ciudades
+                    </Link>
+                  </li>
+                  <li>
+                    <Link href="/gasolineras-mas-baratas-espana" className="transition hover:text-primary">
+                      Ranking nacional
                     </Link>
                   </li>
                 </ul>

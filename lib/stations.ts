@@ -1,7 +1,9 @@
 import { prisma } from "./prisma";
+import { cache } from "react";
 import { getBoundingBoxFromRadius, haversineDistanceKm } from "./geo";
 import type {
   FuelType,
+  FuelIndexSummary,
   HomepageInsights,
   StationFeatureCollection,
   StationListItem,
@@ -33,122 +35,170 @@ function getPriceField(fuel: FuelType) {
   return fuel === "diesel" ? "priceDiesel" : "priceGas95";
 }
 
-export async function getFilterOptions() {
+const stationSelect = {
+  id: true,
+  brand: true,
+  address: true,
+  city: true,
+  province: true,
+  postalCode: true,
+  lat: true,
+  lon: true,
+  priceGas95: true,
+  priceDiesel: true,
+  updatedAt: true
+} as const;
+
+const resolveCityNameBySlug = cache(async (citySlug: string) => {
   await ensureStationsFresh();
-  const stations = await prisma.station.findMany({
-    select: {
-      brand: true,
-      province: true
+
+  const cities = await prisma.station.groupBy({
+    by: ["city"],
+    orderBy: {
+      city: "asc"
     }
   });
 
-  const provinces = Array.from(new Set(stations.map((station) => station.province))).sort(
-    (a, b) => a.localeCompare(b, "es")
-  );
-  const brands = Array.from(new Set(stations.map((station) => station.brand)))
-    .sort((a, b) => a.localeCompare(b, "es"))
-    .slice(0, 80);
+  return cities.find((entry) => slugify(entry.city) === citySlug)?.city ?? null;
+});
+
+export const getFilterOptions = cache(async () => {
+  await ensureStationsFresh();
+
+  const [provinceGroups, brandGroups] = await Promise.all([
+    prisma.station.groupBy({
+      by: ["province"],
+      orderBy: {
+        province: "asc"
+      }
+    }),
+    prisma.station.groupBy({
+      by: ["brand"],
+      orderBy: {
+        brand: "asc"
+      },
+      take: 80
+    })
+  ]);
 
   return {
-    provinces,
-    brands
+    provinces: provinceGroups.map((station) => station.province),
+    brands: brandGroups.map((station) => station.brand)
   };
-}
+});
 
-export async function getHomepageInsights(): Promise<HomepageInsights> {
+export const getHomepageInsights = cache(async (): Promise<HomepageInsights> => {
   await ensureStationsFresh();
-  const stations = await prisma.station.findMany({
-    select: {
-      city: true,
-      province: true,
-      priceGas95: true,
-      priceDiesel: true,
-      updatedAt: true
-    }
-  });
 
-  const totalStations = stations.length;
-  const gasValues = stations
-    .map((station) => station.priceGas95)
-    .filter((value): value is number => value != null);
-  const dieselValues = stations
-    .map((station) => station.priceDiesel)
-    .filter((value): value is number => value != null);
+  const [summary, cityGroups] = await Promise.all([
+    prisma.station.aggregate({
+      _count: {
+        _all: true
+      },
+      _avg: {
+        priceGas95: true,
+        priceDiesel: true
+      },
+      _max: {
+        updatedAt: true
+      }
+    }),
+    prisma.station.groupBy({
+      by: ["city", "province"],
+      _avg: {
+        priceGas95: true,
+        priceDiesel: true
+      },
+      _count: {
+        _all: true,
+        priceGas95: true,
+        priceDiesel: true
+      }
+    })
+  ]);
 
-  const cityMap = new Map<
-    string,
-    {
-      city: string;
-      province: string;
-      gasValues: number[];
-      dieselValues: number[];
-      stationCount: number;
-    }
-  >();
-
-  for (const station of stations) {
-    const key = `${station.city}__${station.province}`;
-    const entry = cityMap.get(key) ?? {
-      city: station.city,
-      province: station.province,
-      gasValues: [],
-      dieselValues: [],
-      stationCount: 0
-    };
-
-    if (station.priceGas95 != null) {
-      entry.gasValues.push(station.priceGas95);
-    }
-
-    if (station.priceDiesel != null) {
-      entry.dieselValues.push(station.priceDiesel);
-    }
-
-    entry.stationCount += 1;
-    cityMap.set(key, entry);
-  }
-
-  const cities = Array.from(cityMap.values());
-  const cheapestCitiesGas95 = cities
-    .filter((city) => city.gasValues.length >= 3)
+  const cheapestCitiesGas95 = cityGroups
+    .filter((city) => city._count.priceGas95 >= 3 && city._avg.priceGas95 != null)
     .map((city) => ({
       city: city.city,
       province: city.province,
       slug: slugify(city.city),
-      avgPrice: city.gasValues.reduce((sum, value) => sum + value, 0) / city.gasValues.length,
-      stationCount: city.stationCount
+      avgPrice: city._avg.priceGas95 as number,
+      stationCount: city._count._all
     }))
     .sort((a, b) => a.avgPrice - b.avgPrice)
     .slice(0, 8);
 
-  const cheapestCitiesDiesel = cities
-    .filter((city) => city.dieselValues.length >= 3)
+  const cheapestCitiesDiesel = cityGroups
+    .filter((city) => city._count.priceDiesel >= 3 && city._avg.priceDiesel != null)
     .map((city) => ({
       city: city.city,
       province: city.province,
       slug: slugify(city.city),
-      avgPrice:
-        city.dieselValues.reduce((sum, value) => sum + value, 0) / city.dieselValues.length,
-      stationCount: city.stationCount
+      avgPrice: city._avg.priceDiesel as number,
+      stationCount: city._count._all
     }))
     .sort((a, b) => a.avgPrice - b.avgPrice)
     .slice(0, 8);
-
-  const latestDate = stations[0]?.updatedAt ?? null;
 
   return {
-    totalStations,
-    avgGas95: gasValues.length
-      ? gasValues.reduce((sum, value) => sum + value, 0) / gasValues.length
-      : null,
-    avgDiesel: dieselValues.length
-      ? dieselValues.reduce((sum, value) => sum + value, 0) / dieselValues.length
-      : null,
-    updatedAt: latestDate ? latestDate.toISOString() : null,
+    totalStations: summary._count._all,
+    avgGas95: summary._avg.priceGas95,
+    avgDiesel: summary._avg.priceDiesel,
+    updatedAt: summary._max.updatedAt?.toISOString() ?? null,
     cheapestCitiesGas95,
     cheapestCitiesDiesel
   };
-}
+});
+
+export const getFuelIndexSummary = cache(async (): Promise<FuelIndexSummary> => {
+  await ensureStationsFresh();
+
+  const [currentSummary, currentSnapshot, baselineSnapshot] = await Promise.all([
+    prisma.station.aggregate({
+      _count: {
+        _all: true
+      },
+      _avg: {
+        priceGas95: true,
+        priceDiesel: true
+      },
+      _max: {
+        updatedAt: true
+      }
+    }),
+    prisma.fuelPriceSnapshot.findFirst({
+      orderBy: {
+        capturedAt: "desc"
+      }
+    }),
+    prisma.fuelPriceSnapshot.findFirst({
+      where: {
+        capturedAt: {
+          lte: new Date(Date.now() - 6.5 * 24 * 60 * 60 * 1000)
+        }
+      },
+      orderBy: {
+        capturedAt: "desc"
+      }
+    })
+  ]);
+
+  return {
+    totalStations: currentSummary._count._all,
+    avgGas95: currentSummary._avg.priceGas95,
+    avgDiesel: currentSummary._avg.priceDiesel,
+    weeklyDeltaGas95:
+      currentSnapshot?.avgGas95 != null && baselineSnapshot?.avgGas95 != null
+        ? currentSnapshot.avgGas95 - baselineSnapshot.avgGas95
+        : null,
+    weeklyDeltaDiesel:
+      currentSnapshot?.avgDiesel != null && baselineSnapshot?.avgDiesel != null
+        ? currentSnapshot.avgDiesel - baselineSnapshot.avgDiesel
+        : null,
+    updatedAt: currentSummary._max.updatedAt?.toISOString() ?? null
+  };
+});
 
 export async function getStationsGeoJSON(query: StationsQuery = {}) {
   await ensureStationsFresh();
@@ -286,25 +336,59 @@ export async function searchStations(query: string) {
   return Array.from(unique.values()).slice(0, 10);
 }
 
-export async function getCityPageData(citySlug: string) {
+export async function getNationalCheapestStations(input?: {
+  fuel?: FuelType;
+  province?: string;
+  limit?: number;
+}) {
   await ensureStationsFresh();
+
+  const fuel = input?.fuel ?? "gas95";
+  const priceField = getPriceField(fuel);
   const stations = await prisma.station.findMany({
-    select: {
-      id: true,
-      brand: true,
-      address: true,
-      city: true,
-      province: true,
-      postalCode: true,
-      lat: true,
-      lon: true,
-      priceGas95: true,
-      priceDiesel: true,
-      updatedAt: true
-    }
+    where: {
+      province: input?.province || undefined,
+      [priceField]: {
+        not: null
+      }
+    },
+    select: stationSelect,
+    orderBy: [{ [priceField]: "asc" }, { city: "asc" }, { brand: "asc" }],
+    take: input?.limit ?? 100
   });
 
-  const filtered = stations.filter((station) => slugify(station.city) === citySlug);
+  const items = stations.map(mapStation);
+
+  return {
+    fuel,
+    stations: items,
+    geoJson: {
+      type: "FeatureCollection" as const,
+      features: items.map((station) => ({
+        type: "Feature" as const,
+        geometry: {
+          type: "Point" as const,
+          coordinates: [station.lon, station.lat] as [number, number]
+        },
+        properties: station
+      }))
+    }
+  };
+}
+
+export const getCityPageData = cache(async (citySlug: string) => {
+  const cityName = await resolveCityNameBySlug(citySlug);
+
+  if (!cityName) {
+    return null;
+  }
+
+  const filtered = await prisma.station.findMany({
+    where: {
+      city: cityName
+    },
+    select: stationSelect
+  });
 
   if (!filtered.length) {
     return null;
@@ -356,15 +440,16 @@ export async function getCityPageData(citySlug: string) {
       .slice(0, 8),
     geoJson
   };
-}
+});
 
-export async function getAvailableCitySlugs(limit = 24) {
+export const getAvailableCitySlugs = cache(async (limit = 24) => {
   await ensureStationsFresh();
-  const stations = await prisma.station.findMany({
-    select: {
-      city: true
+  const cities = await prisma.station.groupBy({
+    by: ["city"],
+    orderBy: {
+      city: "asc"
     }
   });
 
-  return Array.from(new Set(stations.map((station) => slugify(station.city)))).slice(0, limit);
-}
+  return Array.from(new Set(cities.map((station) => slugify(station.city)))).slice(0, limit);
+});

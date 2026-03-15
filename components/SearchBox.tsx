@@ -122,9 +122,9 @@ export function SearchBox({
               setResults([]);
               inputRef.current?.focus();
             }}
-            className="absolute right-3.5 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-full bg-slate-100 text-slate-500 transition hover:bg-slate-200 hover:text-slate-700"
+            className="absolute right-3.5 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full bg-slate-100 text-slate-600 transition hover:bg-slate-200 hover:text-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
           >
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true">
               <path d="M18 6L6 18M6 6l12 12" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" />
             </svg>
           </button>
@@ -145,7 +145,7 @@ export function SearchBox({
                   setQuery(`${station.city}${station.postalCode ? ` · ${station.postalCode}` : ""}`);
                   setResults([]);
                 }}
-                className="flex w-full items-center gap-3 rounded-2xl px-4 py-3 text-left transition hover:bg-slate-50"
+                className="flex w-full items-center gap-3 rounded-2xl px-4 py-3 text-left transition hover:bg-slate-50 focus-visible:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
               >
                 <PinIcon />
                 <div className="min-w-0 flex-1">

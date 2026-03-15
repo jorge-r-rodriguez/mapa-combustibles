@@ -153,6 +153,46 @@ a {
   outline: none;
 }
 
+.fuel-marker-wrapper {
+  background: transparent;
+  border: 0;
+}
+
+.fuel-marker {
+  display: inline-flex;
+  min-width: 72px;
+  justify-content: center;
+  align-items: center;
+  border-radius: 9999px;
+  border: 1px solid rgba(255, 255, 255, 0.92);
+  padding: 10px 12px;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1;
+  color: #0f172a;
+  box-shadow: 0 10px 28px rgba(15, 23, 42, 0.18);
+  backdrop-filter: blur(10px);
+}
+
+.fuel-marker span {
+  white-space: nowrap;
+}
+
+.fuel-marker--cheap {
+  background: linear-gradient(135deg, rgba(34, 197, 94, 0.96), rgba(16, 185, 129, 0.92));
+  color: #f0fdf4;
+}
+
+.fuel-marker--average {
+  background: linear-gradient(135deg, rgba(251, 191, 36, 0.96), rgba(245, 158, 11, 0.92));
+  color: #422006;
+}
+
+.fuel-marker--expensive {
+  background: linear-gradient(135deg, rgba(248, 113, 113, 0.96), rgba(239, 68, 68, 0.92));
+  color: #fff1f2;
+}
+
 /* Cluster markers */
 .marker-cluster-small,
 .marker-cluster-medium,
@@ -163,19 +203,42 @@ a {
 .marker-cluster-small div,
 .marker-cluster-medium div,
 .marker-cluster-large div {
-  margin: 5px;
+  margin: 4px;
   text-align: center;
   border-radius: 50%;
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 700;
   color: #fff;
 }
 
-.marker-cluster-small     { background-color: rgba(11, 99, 246, 0.18); }
-.marker-cluster-small div { background-color: rgba(11, 99, 246, 0.7); }
+.marker-cluster-small {
+  background-color: rgba(11, 99, 246, 0.18);
+}
 
-.marker-cluster-medium     { background-color: rgba(11, 99, 246, 0.22); }
-.marker-cluster-medium div { background-color: rgba(11, 99, 246, 0.8); }
+.marker-cluster-small div {
+  background: linear-gradient(135deg, rgba(11, 99, 246, 0.92), rgba(16, 185, 129, 0.92));
+}
 
-.marker-cluster-large     { background-color: rgba(11, 99, 246, 0.28); }
-.marker-cluster-large div { background-color: rgba(11, 99, 246, 0.9); }
+.marker-cluster-medium {
+  background-color: rgba(11, 99, 246, 0.22);
+}
+
+.marker-cluster-medium div {
+  background: linear-gradient(135deg, rgba(11, 99, 246, 0.96), rgba(59, 130, 246, 0.92));
+}
+
+.marker-cluster-large {
+  background-color: rgba(11, 99, 246, 0.28);
+}
+
+.marker-cluster-large div {
+  background: linear-gradient(135deg, rgba(11, 99, 246, 1), rgba(15, 23, 42, 0.96));
+}
+
+@media (max-width: 768px) {
+  .fuel-marker {
+    min-width: 80px;
+    padding: 11px 14px;
+    font-size: 13px;
+  }
+}
